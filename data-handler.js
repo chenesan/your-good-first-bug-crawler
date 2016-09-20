@@ -3,7 +3,7 @@ module.exports = (function(){
   return {
     repoIsNew: () => { return true; },
     save: () => {
-      console.log(count);
+      //console.log(count);
       count += 1;
     },
   };
