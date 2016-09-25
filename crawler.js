@@ -3,7 +3,7 @@ var dataHandler = require('./data-handler');
 
 var USER_AGENT = 'your-good-first-bug-crawler';
 var LANGUAGES = ['python', 'javascript'];
-var GOOD_FIRST_BUG_LABELS = ['good-first-bug', 'low-hanging-fruit', 'beginner', 'newbie', 'cake'];
+var GOOD_FIRST_BUG_LABELS = ['good-first-bug']//, 'low-hanging-fruit', 'beginner', 'newbie', 'cake'];
 var basicGetOption = {
   method: 'GET',
   headers: {
@@ -25,10 +25,13 @@ function getDataFromLinkHeader(link) {
 
 function getRepoData(issueEntity) {
   var urlSlices = issueEntity.repository_url.split('/');
+  var name = urlSlices.pop();
+  var owner = urlSlices.pop();
   return {
-    name: urlSlices.pop(),
-    owner: urlSlices.pop(),
+    name,
+    owner,
     apiUrl: issueEntity.repository_url,
+    url: `https://www.github.com/${owner}/${name}`,
   };
 }
 
@@ -190,11 +193,12 @@ var IssueCrawler = {
   handleCrawledIssues(issues) {
     issues.forEach(issue => {
       var repoData = getRepoData(issue);
-      if (dataHandler.repoIsNew(repoData)){
-        // this.crawlRepo(repoData.url);
-        // console.log(repoData.name);
-      }
-      dataHandler.saveIssue(issue);
+      dataHandler.repoIsNew(repoData).then((isNew) => {
+        if (isNew) {
+          this.crawlRepo(repoData.apiUrl);
+        }
+        dataHandler.saveIssue(issue);
+      });
     })
   }
 }
