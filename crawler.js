@@ -172,8 +172,6 @@ var IssueCrawler = {
           } else {
             this.crawlIssuesByLanguages(url);
           }
-        } else {
-
         }
       }
     });
@@ -186,6 +184,7 @@ var IssueCrawler = {
         console.log(err);
       } else {
         var data = JSON.parse(body);
+        data.url = data.html_url,
         dataHandler.saveRepo(data);
       }
     });
@@ -193,10 +192,20 @@ var IssueCrawler = {
   handleCrawledIssues(issues) {
     issues.forEach(issue => {
       var repoData = getRepoData(issue);
-      dataHandler.repoIsNew(repoData).then((isNew) => {
-        if (isNew) {
+      dataHandler.repoExists(repoData).then((exist) => {
+        if (exist) {
           this.crawlRepo(repoData.apiUrl);
         }
+        var issueData = {
+          url: issue.html_url,
+          source: 'github',
+          project: {
+            name: issue.url.split('/')[5],
+            url: issue.html_url.split('/').slice(0, -2),
+          },
+          title: issue.title,
+          date: issue.created_at.replace('T', ' ').replace('Z', ''),
+        };
         dataHandler.saveIssue(issue);
       });
     })
