@@ -3,7 +3,7 @@ var models = require('./models');
 module.exports = (function(){
   return {
     repoIsNew: (repo) => {
-      return models.PROJECT.findOne({
+      return models.Project.findOne({
         where: {
           name: repo.name,
           url: repo.url,
@@ -22,14 +22,31 @@ module.exports = (function(){
         title: rawIssueData.title,
         date: rawIssueData.created_at.replace('T', ' ').replace('Z', ''),
       };
-      return models.BUG.create(issueData);
+      return models.Project.findOne({
+        where: {
+          name: issueData.project,
+          url: rawIssueData.html_url.split('/').slice(0, -2),
+        },
+      })
+      .then((project) => {
+        return project.createBug(issueData);
+      });
     },
     saveRepo: (rawRepoData) => {
       var repoData = {
         url: rawRepoData.html_url,
         name: rawRepoData.name,
+        language: rawRepoData.language,
       };
-      return models.PROJECT.create(repoData);
+      return models.Language.findOrCreate({
+        where: {
+          name: repoData.language,
+        }
+      }).spread((language, created) => {
+        return language.createProject(repoData);
+      }, (error) => {
+        console.log(error);
+      });
     }
   };
 })();
