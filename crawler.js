@@ -1,9 +1,11 @@
 var request = require('request');
+var RateLimitRequest = require('./request');
 var dataHandler = require('./data-handler');
 
 var USER_AGENT = 'your-good-first-bug-crawler';
 var LANGUAGES = ['python', 'javascript'];
 var GOOD_FIRST_BUG_LABELS = ['good-first-bug']//, 'low-hanging-fruit', 'beginner', 'newbie', 'cake'];
+
 var basicGetOption = {
   method: 'GET',
   headers: {
@@ -35,56 +37,6 @@ function getRepoData(issueEntity) {
   };
 }
 
-/* wrapper of request for rate limit */
-
-function requestWrapper(initRemainingCount = Infinity, initResetTime = 0, limit = -1) {
-  function requestWithRateLimit(option, callback) {
-    var sendRequest = () => {
-      requestWithRateLimit.remainingCount -= 1;
-      console.log(option.url, 'remainingCount:', requestWithRateLimit.remainingCount);
-      var wrappedCallback = (err, resp, body) => {
-        if (err) {
-          throw err;
-        } else {
-          requestWithRateLimit.resetTime = resp.headers['x-ratelimit-reset'];
-          callback(err, resp, body);
-        }
-      }
-      return request(option, wrappedCallback);
-    }
-    if (requestWithRateLimit.remainingCount > 0) {
-      return sendRequest();
-    } else {
-      requestWithRateLimit.requestQueue.push(sendRequest);
-      console.log('Request for ' + option.url + 'is limited. put it into requestQueue');
-      console.log('Now Request Queue Size is', requestWithRateLimit.requestQueue.length);
-      if (requestWithRateLimit.timerId === -1) {
-        var currentTime = Date.now() / 1000;
-        var remainingSeconds = requestWithRateLimit.resetTime - currentTime + 1;
-        console.log('next time request: ', remainingSeconds);
-        requestWithRateLimit.timerId = setTimeout(
-          () => {
-            console.log('Pop requestQueue');
-            requestWithRateLimit.remainingCount = requestWithRateLimit.rateLimit;
-            var requestTimes = requestWithRateLimit.requestQueue.length < requestWithRateLimit.rateLimit ?
-              requestWithRateLimit.requestQueue.length : requestWithRateLimit.rateLimit;
-            for(var i = 0; i < requestTimes; i ++) {
-              (requestWithRateLimit.requestQueue.shift())();
-            }
-            requestWithRateLimit.timerId = -1;
-          }, remainingSeconds * 1000
-        );
-      }
-    }
-  }
-  requestWithRateLimit.remainingCount = initRemainingCount;
-  requestWithRateLimit.resetTime = initResetTime;
-  requestWithRateLimit.timerId = -1;
-  requestWithRateLimit.requestQueue = [];
-  requestWithRateLimit.rateLimit = limit;
-  return requestWithRateLimit;
-}
-
 function getRateLimit() {
   var option = Object.create(basicGetOption);
   option.url = 'https://api.github.com/rate_limit';
@@ -107,13 +59,18 @@ function githubRequestWrapper() {
   .then((data) => {
     var searchLimitData = data.resources.search;
     var coreLimitData = data.resources.core;
-    searchRequest = requestWrapper(searchLimitData.remaining, searchLimitData.reset, searchLimitData.limit);
-    coreRequest = requestWrapper(coreLimitData.remaining, coreLimitData.reset, coreLimitData.limit);
-    function wrapper(option, callback) {
-      if (option.url.includes('/search/')) {
-        return searchRequest(option, callback);
+    searchRequest = Object.create(RateLimitRequest);
+    searchRequest.setup(searchLimitData.remaining, searchLimitData.reset, searchLimitData.limit);
+    coreRequest = Object.create(RateLimitRequest);
+    coreRequest.setup(coreLimitData.remaining, coreLimitData.reset, coreLimitData.limit);
+    function wrapper(url, callback) {
+      var option = Object.create(basicGetOption, {
+        url
+      });
+      if (url.includes('/search/')) {
+        return searchRequest.request(option, callback);
       } else {
-        return coreRequest(option, callback);
+        return coreRequest.request(option, callback);
       }
     }
     return wrapper
@@ -130,9 +87,7 @@ var IssueCrawler = {
     this.languages = languages;
   },
   crawlIssuesByPage(startUrl) {
-    var option = Object.create(basicGetOption);
-    option.url = startUrl;
-    this.request(option, (err, response, body) => {
+    this.request(startUrl, (err, response, body) => {
       if (err) {
         console.log(err);
       } else {
@@ -155,9 +110,8 @@ var IssueCrawler = {
     });
   },
   crawlIssuesWithLabel(rootUrl, label) {
-    var option = Object.create(basicGetOption);
-    option.url = `${rootUrl}+label:${label}`;
-    this.request(option, (err, response, body) => {
+    var url = `${rootUrl}+label:${label}`;
+    this.request(url, (err, response, body) => {
       if (err) {
         console.log(err);
       } else {
@@ -177,9 +131,7 @@ var IssueCrawler = {
     });
   },
   crawlRepo(repoUrl) {
-    var option = Object.create(basicGetOption);
-    option.url = repoUrl;
-    this.request(option, (err, resp, body) => {
+    this.request(repoUrl, (err, resp, body) => {
       if (err) {
         console.log(err);
       } else {
