@@ -167,6 +167,8 @@ var IssueCrawler = {
             } catch(err) {
               throw err;
             }
+          }, (err) => {
+            console.error(err);
           });
         }
       });

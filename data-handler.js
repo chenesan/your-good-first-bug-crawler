@@ -19,7 +19,6 @@ module.exports = (function(){
           url: repo.url,
         }
       }).then((project) => {
-        console.log(project, repo.name, repo.url);
         return !!project;
       }, (err) => {
         throw err;
@@ -35,9 +34,17 @@ module.exports = (function(){
       .then((project) => {
         return project.createBug(issueData);
       }, (err) => {
-        console.log('Err happen: ', err);
-        console.log('Problematic issue data: ', issueData.project);
-      });
+        console.error('Err happen: ', err);
+        console.error('Problematic issue data: ', issueData.project);
+      })
+      .then(
+        () => {
+          console.log('Save bug: ', issueData.project.name, issueData.title);
+        },
+        (err) => {
+          console.error('Save bug ', issueData.title, ' failed: ', err);
+        }
+      );
     },
     saveRepo: (repoData) => {
       return models.Language.findOrCreate({
@@ -46,9 +53,16 @@ module.exports = (function(){
         }
       }).spread((language, created) => {
         return language.createProject(repoData);
-      }, (error) => {
-        throw error;
-      });
+      }, (err) => {
+        throw err;
+      }).then(
+        () => {
+          console.log('Save project: ', repoData.name);
+        },
+        (err) => {
+          console.error('Save project ', repoData.name, ' failed: ', err);
+        }
+      );
     }
   };
 })();
