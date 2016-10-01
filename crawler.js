@@ -2,8 +2,8 @@ var request = require('request');
 var RateLimitRequest = require('./request');
 var dataHandler = require('./data-handler');
 
-var GITHUB_SEARCH_API_RATE = 6000;
-var GITHUB_CORE_API_RATE = 60000;
+var GITHUB_SEARCH_API_RATE = 2100;
+var GITHUB_CORE_API_RATE = 800;
 var USER_AGENT = 'your-good-first-bug-crawler';
 var LANGUAGES = ['python', 'javascript'];
 var GOOD_FIRST_BUG_LABELS = ['good-first-bug', 'beginner']//, 'low-hanging-fruit', 'beginner', 'newbie', 'cake'];
@@ -13,6 +13,10 @@ var basicGetOption = {
   headers: {
     'User-Agent': 'your-good-first-bug-crawler',
   },
+  qs: {
+    client_id: process.env.OAUTH_CLIENT_ID,
+    client_secret: process.env.OAUTH_CLIENT_SECRET,
+  }
 };
 
 /* helper */
@@ -27,16 +31,40 @@ function getDataFromLinkHeader(link) {
   return data;
 }
 
-function getRepoData(issueEntity) {
-  var urlSlices = issueEntity.repository_url.split('/');
+function buildRepoData(rawRepo) {
+  var repoData = {
+    url: rawRepo.html_url,
+    language: rawRepo.language,
+    name: rawRepo.name,
+  }
+  return repoData;
+}
+
+function buildRepoDataFromIssue(rawIssue) {
+  var urlSlices = rawIssue.repository_url.split('/');
   var name = urlSlices.pop();
   var owner = urlSlices.pop();
   return {
     name,
     owner,
-    apiUrl: issueEntity.repository_url,
+    apiUrl: rawIssue.repository_url,
     url: `https://github.com/${owner}/${name}`,
   };
+}
+
+function buildIssueData(rawIssue) {
+  var repoData = buildRepoDataFromIssue(rawIssue);
+  var issueData = {
+    url: rawIssue.html_url,
+    source: 'github',
+    project: {
+      name: repoData.name,
+      url: repoData.url,
+    },
+    title: rawIssue.title,
+    created_at: rawIssue.created_at.replace('T', ' ').replace('Z', ''),
+  };
+  return issueData;
 }
 
 function getRateLimit() {
@@ -130,26 +158,17 @@ var IssueCrawler = {
   crawlRepo(repoUrl) {
     return this.request(repoUrl)
     .then(({resp = undefined, body = undefined } = {}) => {
-      var data = JSON.parse(body);
-      data.url = data.html_url;
-      return dataHandler.saveRepo(data);
+      var rawData = JSON.parse(body);
+      var repoData = buildRepoData(rawData);
+      return dataHandler.saveRepo(repoData);
     }, (err) => {
       throw err;
     });
   },
   handleCrawledIssues(issues) {
     issues.forEach(issue => {
-      var repoData = getRepoData(issue);
-      var issueData = {
-        url: issue.html_url,
-        source: 'github',
-        project: {
-          name: repoData.name,
-          url: repoData.url,
-        },
-        title: issue.title,
-        created_at: issue.created_at.replace('T', ' ').replace('Z', ''),
-      };
+      var repoData = buildRepoDataFromIssue(issue);
+      var issueData = buildIssueData(issue);
       dataHandler.issueExists(issueData)
       .then((exist) => {
         if (!exist) {
