@@ -6,7 +6,7 @@ var GITHUB_SEARCH_API_RATE = 6000;
 var GITHUB_CORE_API_RATE = 60000;
 var USER_AGENT = 'your-good-first-bug-crawler';
 var LANGUAGES = ['python', 'javascript'];
-var GOOD_FIRST_BUG_LABELS = ['good-first-bug']//, 'low-hanging-fruit', 'beginner', 'newbie', 'cake'];
+var GOOD_FIRST_BUG_LABELS = ['good-first-bug', 'beginner']//, 'low-hanging-fruit', 'beginner', 'newbie', 'cake'];
 
 var basicGetOption = {
   method: 'GET',
@@ -112,10 +112,9 @@ var IssueCrawler = {
     this.request(url)
     .then(({resp = undefined, body = undefined} = {}) => {
       var result = JSON.parse(body);
-      this.handleCrawledIssues(result.items);
-      if (response.headers.link) {
+      if (resp.headers.link) {
         if (result.total_count < 1000) {
-          var linkData = getDataFromLinkHeader(response.headers.link);
+          var linkData = getDataFromLinkHeader(resp.headers.link);
           if (linkData.next) {
             this.crawlIssuesByPage(linkData.next);
           }
@@ -123,6 +122,7 @@ var IssueCrawler = {
           this.crawlIssuesByLanguages(url);
         }
       }
+      this.handleCrawledIssues(result.items);
     }, (err) => {
       throw err;
     });
@@ -169,9 +169,8 @@ var IssueCrawler = {
             }
           });
         }
-      })
-
-    })
+      });
+    });
   }
 }
 
