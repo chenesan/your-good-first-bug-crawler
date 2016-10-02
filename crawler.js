@@ -5,8 +5,11 @@ var dataHandler = require('./data-handler');
 var GITHUB_SEARCH_API_RATE = 2100;
 var GITHUB_CORE_API_RATE = 800;
 var USER_AGENT = 'your-good-first-bug-crawler';
-var LANGUAGES = ['python', 'javascript'];
-var GOOD_FIRST_BUG_LABELS = ['good-first-bug', 'beginner']//, 'low-hanging-fruit', 'beginner', 'newbie', 'cake'];
+var LANGUAGES = ['Python', 'JavaScript'];
+var GOOD_FIRST_BUG_LABELS = [
+  'good-first-bug', 'beginner', 'low-hanging-fruit',
+  'beginner', 'newbie', 'cake',
+];
 
 var basicGetOption = {
   method: 'GET',
@@ -20,6 +23,32 @@ var basicGetOption = {
 };
 
 /* helper */
+
+function final(promises) {
+  var count = promises.length;
+  console.log(count);
+  return new Promise((resolve, reject) => {
+    function decrementCount(resolve) {
+      count -= 1;
+      console.log(count);
+      if (count === 0) {
+        resolve();
+      }
+    }
+    promises.forEach(promise => {
+      promise.then(
+        () => {
+          return decrementCount(resolve);
+        },
+        () => {
+          return decrementCount(resolve);
+        }
+      );
+    })
+  });
+
+}
+
 function getDataFromLinkHeader(link) {
   var data = {};
   link.split(',').forEach(line => {
@@ -31,16 +60,16 @@ function getDataFromLinkHeader(link) {
   return data;
 }
 
-function buildRepoData(rawRepo) {
-  var repoData = {
+function buildProjectData(rawRepo) {
+  var projectData = {
     url: rawRepo.html_url,
     language: rawRepo.language,
     name: rawRepo.name,
   }
-  return repoData;
+  return projectData;
 }
 
-function buildRepoDataFromIssue(rawIssue) {
+function buildProjectDataFromIssue(rawIssue) {
   var urlSlices = rawIssue.repository_url.split('/');
   var name = urlSlices.pop();
   var owner = urlSlices.pop();
@@ -53,13 +82,13 @@ function buildRepoDataFromIssue(rawIssue) {
 }
 
 function buildIssueData(rawIssue) {
-  var repoData = buildRepoDataFromIssue(rawIssue);
+  var projectData = buildProjectDataFromIssue(rawIssue);
   var issueData = {
     url: rawIssue.html_url,
     source: 'github',
     project: {
-      name: repoData.name,
-      url: repoData.url,
+      name: projectData.name,
+      url: projectData.url,
     },
     title: rawIssue.title,
     created_at: rawIssue.created_at.replace('T', ' ').replace('Z', ''),
@@ -126,63 +155,67 @@ var IssueCrawler = {
           this.crawlIssuesByPage(linkData.next);
         }
       },
-      (err) => { throw err; }
+      (err) => { console.log(err); }
     )
   },
   crawlIssuesByLanguages(rootUrl) {
-    this.languages.forEach(language => {
+    return final(this.languages.map(language => {
       var startUrl = `${rootUrl}+language:${language}`;
-      this.crawlIssuesByPage(startUrl);
-    });
+      return this.crawlIssuesByPage(startUrl);
+    }));
   },
   crawlIssuesWithLabel(rootUrl, label) {
     var url = `${rootUrl}+label:${label}`;
-    this.request(url)
+    return this.request(url)
     .then(({resp = undefined, body = undefined} = {}) => {
       var result = JSON.parse(body);
-      if (resp.headers.link) {
-        if (result.total_count < 1000) {
-          var linkData = getDataFromLinkHeader(resp.headers.link);
-          if (linkData.next) {
-            this.crawlIssuesByPage(linkData.next);
+      return this.handleCrawledIssues(result.items).then(
+        () => {
+          if (resp.headers.link) {
+            if (result.total_count < 1000) {
+              var linkData = getDataFromLinkHeader(resp.headers.link);
+              if (linkData.next) {
+                this.crawlIssuesByPage(linkData.next);
+              }
+            } else {
+              this.crawlIssuesByLanguages(url);
+            }
           }
-        } else {
-          this.crawlIssuesByLanguages(url);
-        }
-      }
-      this.handleCrawledIssues(result.items);
+        },
+        (err) => { console.log(err);}
+      );
     }, (err) => {
-      throw err;
+      console.error(err);
     });
   },
   crawlRepo(repoUrl) {
     return this.request(repoUrl)
     .then(({resp = undefined, body = undefined } = {}) => {
       var rawData = JSON.parse(body);
-      var repoData = buildRepoData(rawData);
-      return dataHandler.saveRepo(repoData);
+      var projectData = buildProjectData(rawData);
+      return dataHandler.saveProject(projectData);
     }, (err) => {
       throw err;
     });
   },
   handleCrawledIssues(issues) {
-    issues.forEach(issue => {
-      var repoData = buildRepoDataFromIssue(issue);
+    return final(issues.map(issue => {
+      var projectData = buildProjectDataFromIssue(issue);
       var issueData = buildIssueData(issue);
-      dataHandler.issueExists(issueData)
+      return dataHandler.issueExists(issueData)
       .then((exist) => {
         if (!exist) {
-          return dataHandler.repoExists(repoData)
+          return dataHandler.projectExists(projectData)
           .then((exist) => {
             if (!exist) {
-              return this.crawlRepo(repoData.apiUrl);
+              return this.crawlRepo(projectData.apiUrl);
             } else {
-              return Promise.resolve(repoData);
+              return Promise.resolve(projectData);
             }
           })
           .then(() => {
             try {
-              dataHandler.saveIssue(issueData);
+              return dataHandler.saveIssue(issueData);
             } catch(err) {
               throw err;
             }
@@ -191,7 +224,7 @@ var IssueCrawler = {
           });
         }
       });
-    });
+    }));
   }
 }
 
@@ -199,10 +232,14 @@ function main(labels, languages) {
   var githubRequest = githubRequestWrapper();
   var issueCrawler = Object.create(IssueCrawler);
   issueCrawler.setup(githubRequest, languages);
-  labels.forEach((label) => {
+  final(labels.map((label) => {
     var rootUrl = 'https://api.github.com/search/issues?per_page=100&q=state:open+type:issue+no:assignee';
-    issueCrawler.crawlIssuesWithLabel(rootUrl, label);
-  });
+    return issueCrawler.crawlIssuesWithLabel(rootUrl, label);
+  }))
+  .then(
+    () => { process.exit(1); },
+    () => { process.exit(-1); }
+  );
 }
 
 main(GOOD_FIRST_BUG_LABELS, LANGUAGES);

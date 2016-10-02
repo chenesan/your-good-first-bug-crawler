@@ -2,7 +2,7 @@ module.exports = (function(){
   var models = require('./models');
   return {
     issueExists: (issueData) => {
-      return models.Bug.findOne({
+      return models.Issue.findOne({
         where: {
           url: issueData.url,
         }
@@ -12,7 +12,7 @@ module.exports = (function(){
         throw err;
       });
     },
-    repoExists: (repo) => {
+    projectExists: (repo) => {
       return models.Project.findOne({
         where: {
           name: repo.name,
@@ -32,35 +32,35 @@ module.exports = (function(){
         },
       })
       .then((project) => {
-        return project.createBug(issueData);
+        return project.createIssue(issueData);
       }, (err) => {
         console.error('Err happen: ', err);
         console.error('Problematic issue data: ', issueData.project);
       })
       .then(
         () => {
-          console.log('Save bug: ', issueData.project.name, issueData.title);
+          console.log('Save Issue: ', issueData.project.name, issueData.title);
         },
         (err) => {
-          console.error('Save bug ', issueData.title, ' failed: ', err);
+          console.error('Save Issue ', issueData.title, ' failed: ', err);
         }
       );
     },
-    saveRepo: (repoData) => {
+    saveProject: (projectData) => {
       return models.Language.findOrCreate({
         where: {
-          name: repoData.language,
+          name: projectData.language,
         }
       }).spread((language, created) => {
-        return language.createProject(repoData);
+        return language.createProject(projectData);
       }, (err) => {
-        throw err;
+        console.log(err);
       }).then(
         () => {
-          console.log('Save project: ', repoData.name);
+          console.log('Save project: ', projectData.name);
         },
         (err) => {
-          console.error('Save project ', repoData.name, ' failed: ', err);
+          console.error('Save project ', projectData.name, ' failed: ', err);
         }
       );
     }
