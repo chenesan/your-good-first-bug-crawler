@@ -14,5 +14,8 @@
     "mysql": "^2.11.1",
     "request": "^2.75.0",
     "sequelize": "^3.24.3"
+  },
+  "devDependencies": {
+    "mocha": "^3.1.0"
   }
 }
