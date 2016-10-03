@@ -27,11 +27,9 @@ var basicGetOption = {
 
 function final(promises) {
   var count = promises.length;
-  console.log(count);
   return new Promise((resolve, reject) => {
     function decrementCount(resolve) {
       count -= 1;
-      console.log(count);
       if (count === 0) {
         resolve();
       }
@@ -142,23 +140,20 @@ var IssueCrawler = {
     this.request = requestFunc;
     this.languages = languages;
   },
-  crawlIssuesByPage(startUrl) {
-    return this.request(startUrl)
-    .then(
-      ({resp = undefined, body = undefined} = {}) => {
-        var result = JSON.parse(body);
-        if (!result.items) {
-          console.log(response);
-        }
-        this.handleCrawledIssues(result.items);
-        var linkData = getDataFromLinkHeader(response.headers.link);
-        if (linkData.next) {
-          this.crawlIssuesByPage(linkData.next);
-        }
-      },
-      (err) => { console.log(err); }
-    )
-  },
+  crawlIssuesByPage: co.wrap(function* (startUrl) {
+    try {
+      var {resp, body} = yield this.request(startUrl);
+      var result = JSON.parse(body);
+      var dataHandlerPromise = this.handleCrawledIssues(result.items);
+      var nextCrawlPromise;
+      var linkData = getDataFromLinkHeader(resp.headers.link);
+      if (linkData.next) {
+        nextCrawlPromise = this.crawlIssuesByPage(linkData.next);
+      }
+      return final([Promise.resolve(nextCrawlPromise), dataHandlerPromise]);
+    }
+    catch (err) { console.error(err); }
+  }),
   crawlIssuesByLanguages(rootUrl) {
     return final(this.languages.map(language => {
       var startUrl = `${rootUrl}+language:${language}`;
@@ -182,7 +177,7 @@ var IssueCrawler = {
           nextCrawlPromise = this.crawlIssuesByLanguages(url);
         }
       }
-      return yield final(nextCrawlPromise, dataHandlerPromise);
+      return final([Promise.resolve(nextCrawlPromise), dataHandlerPromise]);
     }
     catch (err) {
       console.log(err);
@@ -199,27 +194,22 @@ var IssueCrawler = {
     });
   },
   handleCrawledIssues(issues) {
-    return final(issues.map(issue => {
+    var gen = function* (issue) {
       var projectData = buildProjectDataFromIssue(issue);
       var issueData = buildIssueData(issue);
-      return dataHandler.projectExists(projectData)
-      .then((exist) => {
-        if (!exist) {
-          return this.crawlRepo(projectData.apiUrl);
-        } else {
-          return Promise.resolve(projectData);
+      try {
+        if (!(yield dataHandler.projectExists(projectData))) {
+          yield this.crawlRepo(projectData.apiUrl);
         }
-      })
-      .then(() => {
-        try {
-          return dataHandler.saveIssue(issueData);
-        } catch(err) {
-          throw err;
-        }
-      }, (err) => {
+        return yield dataHandler.saveIssue(issueData);
+      }
+      catch (err) {
         console.error(err);
-      });
-    }));
+      }
+    };
+    gen = gen.bind(this);
+    var wrapper = co.wrap(gen);
+    return final(issues.map(wrapper));
   }
 }
 
