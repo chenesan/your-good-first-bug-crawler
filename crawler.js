@@ -1,3 +1,4 @@
+var co = require('co');
 var request = require('request');
 var RateLimitRequest = require('./request');
 var dataHandler = require('./data-handler');
@@ -164,30 +165,29 @@ var IssueCrawler = {
       return this.crawlIssuesByPage(startUrl);
     }));
   },
-  crawlIssuesWithLabel(rootUrl, label) {
+  crawlIssuesWithLabel: co.wrap(function* (rootUrl, label) {
     var url = `${rootUrl}+label:${label}`;
-    return this.request(url)
-    .then(({resp = undefined, body = undefined} = {}) => {
+    try {
+      var {resp, body} = yield this.request(url);
       var result = JSON.parse(body);
-      return this.handleCrawledIssues(result.items).then(
-        () => {
-          if (resp.headers.link) {
-            if (result.total_count < 1000) {
-              var linkData = getDataFromLinkHeader(resp.headers.link);
-              if (linkData.next) {
-                this.crawlIssuesByPage(linkData.next);
-              }
-            } else {
-              this.crawlIssuesByLanguages(url);
-            }
+      var nextCrawlPromise;
+      var dataHandlerPromise = this.handleCrawledIssues(result.items);
+      if (resp.headers.link) {
+        if (result.total_count < 1000) {
+          var linkData = getDataFromLinkHeader(resp.headers.link);
+          if (linkData.next) {
+            nextCrawlPromise = this.crawlIssuesByPage(linkData.next);
           }
-        },
-        (err) => { console.log(err);}
-      );
-    }, (err) => {
-      console.error(err);
-    });
-  },
+        } else {
+          nextCrawlPromise = this.crawlIssuesByLanguages(url);
+        }
+      }
+      return yield final(nextCrawlPromise, dataHandlerPromise);
+    }
+    catch (err) {
+      console.log(err);
+    }
+  }),
   crawlRepo(repoUrl) {
     return this.request(repoUrl)
     .then(({resp = undefined, body = undefined } = {}) => {
