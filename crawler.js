@@ -202,27 +202,22 @@ var IssueCrawler = {
     return final(issues.map(issue => {
       var projectData = buildProjectDataFromIssue(issue);
       var issueData = buildIssueData(issue);
-      return dataHandler.issueExists(issueData)
+      return dataHandler.projectExists(projectData)
       .then((exist) => {
         if (!exist) {
-          return dataHandler.projectExists(projectData)
-          .then((exist) => {
-            if (!exist) {
-              return this.crawlRepo(projectData.apiUrl);
-            } else {
-              return Promise.resolve(projectData);
-            }
-          })
-          .then(() => {
-            try {
-              return dataHandler.saveIssue(issueData);
-            } catch(err) {
-              throw err;
-            }
-          }, (err) => {
-            console.error(err);
-          });
+          return this.crawlRepo(projectData.apiUrl);
+        } else {
+          return Promise.resolve(projectData);
         }
+      })
+      .then(() => {
+        try {
+          return dataHandler.saveIssue(issueData);
+        } catch(err) {
+          throw err;
+        }
+      }, (err) => {
+        console.error(err);
       });
     }));
   }

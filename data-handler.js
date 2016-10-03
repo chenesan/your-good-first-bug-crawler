@@ -32,8 +32,23 @@ module.exports = (function(){
         },
       })
       .then((project) => {
-        return project.createIssue(issueData);
-      }, (err) => {
+        return models.Issue.findOne({
+          where: {
+            url: issueData.url,
+          },
+        })
+        .then(
+          (issue) => {
+            if (issue) {
+              return issue.update(issueData);
+            } else {
+              return project.createIssue(issueData);
+            }
+          },
+          (err) => { console.error(err); }
+          );
+        }, 
+        (err) => {
         console.error('Err happen: ', err);
         console.error('Problematic issue data: ', issueData.project);
       })
