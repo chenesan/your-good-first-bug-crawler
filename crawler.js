@@ -59,16 +59,10 @@ function getDataFromLinkHeader(link) {
   return data;
 }
 
-function buildProjectData(rawRepo) {
-  var projectData = {
-    description: rawRepo.description,
-    language: rawRepo.language,
-    name: rawRepo.name,
-    popularity: rawRepo.stargazers_count,
-    url: rawRepo.html_url,
-  }
-  return projectData;
+function fetchProjectSize(url) {
+
 }
+
 
 function buildProjectDataFromIssue(rawIssue) {
   var urlSlices = rawIssue.repository_url.split('/');
@@ -142,6 +136,17 @@ var IssueCrawler = {
     this.request = requestFunc;
     this.languages = languages;
   },
+  buildProjectData: co.wrap(function* (rawRepo) {
+    var projectData = {
+      description: rawRepo.description,
+      language: rawRepo.language,
+      name: rawRepo.name,
+      popularity: rawRepo.stargazers_count,
+      url: rawRepo.html_url,
+      size: yield this.fetchProjectSize(rawRepo.languages_url),
+    };
+    return projectData;
+  }),
   crawlIssuesByPage: co.wrap(function* (startUrl) {
     try {
       var {resp, body} = yield this.request(startUrl);
@@ -185,12 +190,23 @@ var IssueCrawler = {
       console.log(err);
     }
   }),
-  crawlRepo(repoUrl) {
-    return this.request(repoUrl)
+  crawlRepo: co.wrap(function* (repoUrl) {
+    try {
+      const {resp, body} = yield this.request(repoUrl);
+      const rawData = JSON.parse(body);
+      const projectData = yield this.buildProjectData(rawData);
+      return yield dataHandler.saveProject(projectData);
+    }
+    catch(err) {
+      console.log(err);
+    }
+  }),
+  fetchProjectSize(url) {
+    return this.request(url)
     .then(({resp = undefined, body = undefined } = {}) => {
       var rawData = JSON.parse(body);
-      var projectData = buildProjectData(rawData);
-      return dataHandler.saveProject(projectData);
+      var size = Object.keys(rawData).reduce((sum, key) => Number(rawData[key]) + sum, 0) / 1000;
+      return size;
     }, (err) => {
       throw err;
     });
