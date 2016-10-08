@@ -62,9 +62,10 @@ function getDataFromLinkHeader(link) {
 function buildProjectData(rawRepo) {
   var projectData = {
     description: rawRepo.description,
-    url: rawRepo.html_url,
     language: rawRepo.language,
     name: rawRepo.name,
+    popularity: rawRepo.stargazers_count,
+    url: rawRepo.html_url,
   }
   return projectData;
 }
