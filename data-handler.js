@@ -70,7 +70,24 @@ module.exports = (function(){
       }
     );
   };
+
+  var removeOutdatedIssue = (interval = 43200, comparedTimestamp = undefined) => {
+    const comparedPromise = comparedTimestamp === undefined ?
+      models.Issue.max('updatedAt') : Promise.resolve(comparedTimestamp);
+    return comparedPromise.then(
+      (ts) => {
+        models.Issue.destroy({
+          where: {
+            updatedAt: {
+              $lt: new Date(ts - interval * 1000),
+            },
+          },
+        });
+      }
+    )
+  };
   return {
+    removeOutdatedIssue,
     issueExists,
     projectExists,
     saveIssue,

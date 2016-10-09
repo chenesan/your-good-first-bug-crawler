@@ -239,9 +239,25 @@ function main(labels, languages) {
     var rootUrl = 'https://api.github.com/search/issues?per_page=100&q=state:open+type:issue+no:assignee';
     return issueCrawler.crawlIssuesWithLabel(rootUrl, label);
   }))
+  .catch(
+    (err) => {
+      console.error(err);
+      process.exit(-1);
+    }
+  )
   .then(
-    () => { process.exit(1); },
-    () => { process.exit(-1); }
+    () => {
+      return dataHandler.removeOutdatedIssue(43200);
+    }
+  )
+  .catch(
+    (err) => {
+      console.error(err);
+      process.exit(-1);
+    }
+  )
+  .then(
+    () => { process.exit(0); }
   );
 }
 
