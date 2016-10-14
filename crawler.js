@@ -86,7 +86,7 @@ function buildIssueData(rawIssue) {
       url: projectData.url,
     },
     title: rawIssue.title,
-    created_at: rawIssue.created_at.replace('T', ' ').replace('Z', ''),
+    createdAt: rawIssue.created_at.replace('T', ' ').replace('Z', ''),
   };
   return issueData;
 }
