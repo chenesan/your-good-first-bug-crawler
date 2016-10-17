@@ -6,10 +6,9 @@ var dataHandler = require('./data-handler');
 var GITHUB_SEARCH_API_RATE = 2100;
 var GITHUB_CORE_API_RATE = 800;
 var USER_AGENT = 'your-good-first-bug-crawler';
-var LANGUAGES = ['Python', 'JavaScript'];
 var GOOD_FIRST_BUG_LABELS = [
-  'good-first-bug', 'beginner', 'low-hanging-fruit',
-  'beginner', 'newbie', 'cake',
+  'good-first-bug', 'low-hanging-fruit',
+  'beginner', 'newbie', 'cake', 'easy',
 ];
 
 var basicGetOption = {
@@ -50,12 +49,14 @@ function final(promises) {
 
 function getDataFromLinkHeader(link) {
   var data = {};
-  link.split(',').forEach(line => {
-    var [urlSeg, relSeg] = line.split(';').map(val => val.trim());
-    var url = urlSeg.slice(1, -1);
-    var rel = relSeg.split('=')[1].slice(1, -1);
-    data[rel] = url;
-  });
+  if (link) {
+    link.split(',').forEach(line => {
+      var [urlSeg, relSeg] = line.split(';').map(val => val.trim());
+      var url = urlSeg.slice(1, -1);
+      var rel = relSeg.split('=')[1].slice(1, -1);
+      data[rel] = url;
+    });
+  }
   return data;
 }
 
@@ -261,4 +262,6 @@ function main(labels, languages) {
   );
 }
 
-main(GOOD_FIRST_BUG_LABELS, LANGUAGES);
+dataHandler.queryLanguages().then(
+  (languages) => { main(GOOD_FIRST_BUG_LABELS, languages); }
+);

@@ -24,6 +24,19 @@ module.exports = (function(){
       throw err;
     });
   };
+  var queryLanguages = () => {
+    return models.Language.findAll({
+      where: {
+        name: {
+          $ne: null
+        },
+      },
+    })
+    .then(
+      (languages) => languages.map(language => language.name),
+      (err) => { console.error(err); }
+    );
+  }
   var saveIssue = co.wrap(function* (issueData) {
     try {
       var project = yield models.Project.findOne({
@@ -90,6 +103,7 @@ module.exports = (function(){
     removeOutdatedIssue,
     issueExists,
     projectExists,
+    queryLanguages,
     saveIssue,
     saveProject,
   };
