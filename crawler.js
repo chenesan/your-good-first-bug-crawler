@@ -8,7 +8,13 @@ var GITHUB_CORE_API_RATE = 800;
 var USER_AGENT = 'your-good-first-bug-crawler';
 var GOOD_FIRST_BUG_LABELS = [
   'good-first-bug', 'low-hanging-fruit',
+  'good first bug', 'low hanging fruit',
+  'easy to fix', 'easy-to-fix',
+  'easy to solve', 'easy-to-solve',
   'beginner', 'newbie', 'cake', 'easy',
+  'complexity/easy', 'difficulty/easy',
+  'complexity-easy', 'difficulty-easy',
+  'complexity:easy', 'difficulty:easy',
 ];
 
 var basicGetOption = {
@@ -81,6 +87,7 @@ function buildIssueData(rawIssue) {
   var projectData = buildProjectDataFromIssue(rawIssue);
   var issueData = {
     url: rawIssue.html_url,
+    body: rawIssue.body,
     source: 'github',
     project: {
       name: projectData.name,
@@ -169,7 +176,7 @@ var IssueCrawler = {
     }));
   },
   crawlIssuesWithLabel: co.wrap(function* (rootUrl, label) {
-    var url = `${rootUrl}+label:${label}`;
+    var url = `${rootUrl}+label:"${label}"`;
     try {
       var {resp, body} = yield this.request(url);
       var result = JSON.parse(body);
