@@ -255,6 +255,7 @@ function main(labels, languages) {
   )
   .then(
     () => {
+      console.log('Remove outdated issues.');
       return dataHandler.removeOutdatedIssue(43200);
     }
   )
@@ -265,7 +266,10 @@ function main(labels, languages) {
     }
   )
   .then(
-    () => { process.exit(0); }
+    () => {
+      console.log('Successfully finish crawling. Exit.');
+      process.exit(0);
+    }
   );
 }
 

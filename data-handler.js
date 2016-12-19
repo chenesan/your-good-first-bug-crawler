@@ -89,7 +89,7 @@ module.exports = (function(){
       models.Issue.max('updatedAt') : Promise.resolve(comparedTimestamp);
     return comparedPromise.then(
       (ts) => {
-        models.Issue.destroy({
+        return models.Issue.destroy({
           where: {
             updatedAt: {
               $lt: new Date(ts - interval * 1000),
