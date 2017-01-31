@@ -39,18 +39,21 @@ function final(promises) {
         resolve();
       }
     }
-    promises.forEach(promise => {
-      promise.then(
-        () => {
-          return decrementCount(resolve);
-        },
-        () => {
-          return decrementCount(resolve);
-        }
-      );
-    })
+    if (promises.length === 0) {
+      resolve();
+    } else {
+      promises.forEach((promise, i) => {
+        promise.then(
+          () => {
+            return decrementCount(resolve, i);
+          },
+          () => {
+            return decrementCount(resolve, i);
+          }
+        );
+      })
+    }
   });
-
 }
 
 function getDataFromLinkHeader(link) {
@@ -65,11 +68,6 @@ function getDataFromLinkHeader(link) {
   }
   return data;
 }
-
-function fetchProjectSize(url) {
-
-}
-
 
 function buildProjectDataFromIssue(rawIssue) {
   var urlSlices = rawIssue.repository_url.split('/');
