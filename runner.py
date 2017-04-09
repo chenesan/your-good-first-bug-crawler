@@ -2,6 +2,7 @@
 import datetime
 import os
 import subprocess
+import time
 
 LOG_PATH = '/var/log/ygfb/ygfb.log'
 ERR_LOG_PATH = '/var/log/ygfb/ygfb_err.log'
@@ -39,3 +40,7 @@ while ret != -1:
     )
     runner_log.flush()
     call_counter += 1
+    # Time for crawler is around 10 minutes
+    # We want the crawler run once per hour
+    # So sleep 3000 seconds.
+    time.sleep(3000)
